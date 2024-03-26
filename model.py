@@ -242,19 +242,17 @@ class CoupledHead(nn.Module):
         )
         self.stride = stride
 
-    def forward(self, x, porting=False):
+    def forward(self, x):
         y = self.bbox_branch(x)
-        if porting:
-            return y
-        return torch.split(y, (4, 1), dim=1)
+        return y
 
 
 class YOLOv8Head(nn.Module):
     def __init__(self, w, r, act, nc, conf_threshold=0.01, iou_threshold=0.6):
         super().__init__()
-        self.decoupled_head_p3 = CoupledHead(int(256 * w), nc=nc, stride=8, act=act)
-        self.decoupled_head_p4 = CoupledHead(int(512 * w), nc=nc, stride=16, act=act)
-        self.decoupled_head_p5 = CoupledHead(int(512 * w * r), nc=nc, stride=32, act=act)
+        self.head_p3 = CoupledHead(int(256 * w), nc=nc, stride=8, act=act)
+        self.head_p4 = CoupledHead(int(512 * w), nc=nc, stride=16, act=act)
+        self.head_p5 = CoupledHead(int(512 * w * r), nc=nc, stride=32, act=act)
         self.no = nc + 4  # number of outputs per anchor
         self.nc = nc
 
@@ -267,14 +265,11 @@ class YOLOv8Head(nn.Module):
 
     def forward(self, x):
         p3, p4, p5 = x
-        if self.porting:
-            return self.decoupled_head_p3(p3, porting=True), self.decoupled_head_p4(p4, porting=True), self.decoupled_head_p5(p5, porting=True)
+        x_p3 = self.head_p3(p3)
+        x_p4 = self.head_p4(p4)
+        x_p5 = self.head_p5(p5)
 
-        x_p3 = self.decoupled_head_p3(p3)
-        x_p4 = self.decoupled_head_p4(p4)
-        x_p5 = self.decoupled_head_p5(p5)
-
-        if self.training:
+        if self.porting or self.training:
             return x_p3, x_p4, x_p5
 
         shape = x_p3.shape
@@ -341,14 +336,16 @@ if __name__ == "__main__":
     import time
 
     model = yolov8n()
-    model.head.porting = True
-    model.eval()
     x = torch.rand(1, 3, 352, 640)
 
-    st = time.time()
-    test_round = 100
-    for i in range(test_round):
-        y = model(x)
-    et = time.time()
-    print("avg time: {}".format((et - st) / test_round))
-    # print(y)
+    y = model(x)
+    print(y)
+
+    # model.head.porting = True
+    # model.eval()
+    # st = time.time()
+    # test_round = 100
+    # for i in range(test_round):
+    #     y = model(x)
+    # et = time.time()
+    # print("avg time: {}".format((et - st) / test_round))
