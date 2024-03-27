@@ -1,4 +1,4 @@
-# yolov8_cspdarknet-pvdetection 人车检测
+# yolov8_cspdarknet-face-detection 人脸检测（人脸识别stage1） 
 
 ## 运行demo
 ```shell
